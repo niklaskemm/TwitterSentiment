@@ -1,0 +1,9 @@
+tweepy
+textblob
+pandas
+geopandas
+altair
+vega_datasets
+shapely
+numpy
+time
