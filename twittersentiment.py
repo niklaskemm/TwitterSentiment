@@ -438,7 +438,7 @@ def plot_tweets_world(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
                         ),
         # generating tooltip with the user name, text and sentiment of tweet
         tooltip=["user_name", "text", "sentiment"]
-    )
+    ).properties(title="Tweets of the world")
 
     # generating the final layered chart
     output_map = (spheric_background + background_world + points_world)\
@@ -486,7 +486,7 @@ def plot_tweets_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
                             range=["green", "orange", "red"]
                         )),
         tooltip=["user_name", "text", "sentiment"]
-    )
+    ).properties(title="Tweets of the US")
 
     # generating the final layered chart
     output_map = (background_usa + points_usa).project("albersUsa")
@@ -521,7 +521,7 @@ def plot_stats_world(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
         # aggregating the number of tweets per class
         alt.X("count()"),
         tooltip="count()"
-    ).properties(width=720)
+    ).properties(width=720, title="Tweet sources of the world")
 
     return overview
 
@@ -553,7 +553,7 @@ def plot_stats_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
         # aggregating the number of tweets per class
         alt.X("count()"),
         tooltip="count()"
-    ).properties(width=720)
+    ).properties(width=720, title="Tweet sources of the US")
 
     return overview
 
@@ -586,10 +586,11 @@ def plot_choro_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
         tooltip=["name:N", "sentiment"]
     ).properties(
         width=720,
-        height=400
+        height=400,
+        title="Average tweet sentiment per state of the US"
     )
 
-    # generating chart consisting of the states
+    # # generating chart consisting of the states
     background_usa = alt.Chart(states).mark_geoshape(
         fill="lightgray",
         stroke="white"
@@ -600,6 +601,8 @@ def plot_choro_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
 
     # generating the final layered chart
     output_map = (background_usa + choro).project("albersUsa")
+
+    # output_map = background_usa.project("albersUsa")
 
     return output_map
 
@@ -677,7 +680,7 @@ def plot_all(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
                         ),
         tooltip=["user_name", "text", "sentiment"],
         opacity=opacity_points
-    ).add_selection(brush)
+    ).add_selection(brush).properties(title="Tweets of the world")
 
     # plot_tweets_usa()
     tweets_usa = alt.Chart(df_usa).mark_square(size=5, opacity=0.5).encode(
@@ -691,7 +694,7 @@ def plot_all(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
                         ),
         tooltip=["user_name", "text", "sentiment"],
         opacity=opacity_points
-    ).add_selection(brush)
+    ).add_selection(brush).properties(title="Tweets of the US")
 
     # plot_stats_world()
     stats_world = alt.Chart(df_world).mark_bar().encode(
@@ -701,7 +704,12 @@ def plot_all(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
         alt.X("count()"),
         opacity=opacity_overview,
         tooltip="count()"
-    ).add_selection(brush).properties(width=720).interactive()
+    ).add_selection(
+        brush
+    ).properties(
+        width=720,
+        title="Tweet sources of the world"
+    ).interactive()
 
     # plot_stats_usa()
     stats_usa = alt.Chart(df_usa).mark_bar().encode(
@@ -711,7 +719,12 @@ def plot_all(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
         alt.X("count()"),
         opacity=opacity_overview,
         tooltip="count()"
-    ).add_selection(brush).properties(width=720).interactive()
+    ).add_selection(
+        brush
+    ).properties(
+        width=720,
+        title="Tweet sources of the US"
+    ).interactive()
 
     # plot_choro_usa()
     choro = alt.Chart(choro).mark_geoshape().encode(
@@ -725,7 +738,8 @@ def plot_all(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
         tooltip=["name:N", "sentiment"]
     ).properties(
         width=720,
-        height=400
+        height=400,
+        title="Average tweet sentiment per state of the US"
     ).add_selection(brush)
 
     # generating the final layered chart
