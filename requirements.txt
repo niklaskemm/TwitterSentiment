@@ -1,11 +1,8 @@
-json==2.0.9
-re==2.2.1
 textblob==0.15.3
 numpy==1.18.1
 pandas==1.0.1
 geopandas==0.6.1
 altair==4.0.0
 vega_datasets==0.7.0
-shapely==1.6.4.post2
+shapely==1.6.4
 tweepy==3.8.0
-watermark==2.0.2
