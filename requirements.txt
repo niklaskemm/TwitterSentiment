@@ -4,5 +4,4 @@ pandas==1.0.1
 geopandas==0.6.1
 altair==4.0.0
 vega_datasets==0.7.0
-shapely==1.6.4
 tweepy==3.8.0
