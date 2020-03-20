@@ -5,4 +5,3 @@ geopandas==0.6.1
 altair==4.0.0
 vega_datasets==0.7.0
 tweepy==3.8.0
-rtree
