@@ -245,13 +245,14 @@ def get_data(location, auth_file="auth.json"):
 
     # starting the Stream
     try:
+        print('Notice: Stream can only be stopped by interrupting it!')
         print('Start streaming...')
         twitterStream.filter(locations=location)
 
     # handling the necessary KeyboardInterrupt to stop the stream
     # Stopping the Kernel in Jupyter causes KeyboardInterrupt aswell
     except KeyboardInterrupt:
-        print("Stop streaming...")
+        print("KeyboardInterrupt / Kernel stopped")
 
     except Exception as e:
         print("Error :", e)
@@ -262,7 +263,7 @@ def get_data(location, auth_file="auth.json"):
         with open("data/" + _OUTPUT_JSON_FILENAME, "w") as f:
             # dumping the data into an external JSON file
             json.dump(_RESULTS_DICT_JSON, f, indent=2)
-        print(f"Output file data/'{_OUTPUT_JSON_FILENAME}' generated")
+        print(f"Output file 'data/{_OUTPUT_JSON_FILENAME}' generated")
         print(f"Number of collected tweets: {len(_RESULTS_DICT_JSON['data'])}")
         # disconnecting the stream
         twitterStream.disconnect()
@@ -279,9 +280,18 @@ def create_dataframe_world(data=f"data/{_OUTPUT_JSON_FILENAME}"):
 
     Returns:
         dataframe: Pandas dataframe with columns corresponding to keys of JSON.
+
+    Raises:
+        ValueError: If no tweets can be found in the dataset.
     """
-    dataframe = pd.read_json(data, orient="split")
-    return dataframe
+    try:
+        dataframe = pd.read_json(data, orient="split")
+        return dataframe
+
+    except Exception:
+        raise ValueError("""There are no tweets in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
 
 
 def create_dataframe_us(data=f"data/{_OUTPUT_JSON_FILENAME}"):
@@ -298,28 +308,36 @@ def create_dataframe_us(data=f"data/{_OUTPUT_JSON_FILENAME}"):
     Returns:
         dataframe: Geopandas dataframe of all tweets from the US
             with columns corresponding to keys of JSON.
+
+    Raises:
+        ValueError: If no tweets from the US can be fonud in the dataset.
     """
-    dataframe = pd.read_json(data, orient="split")
+    try:
+        dataframe = pd.read_json(data, orient="split")
 
-    # create geopandas dataframe from pandas dataframe
-    gdf_tweets = gpd.GeoDataFrame(dataframe, geometry=gpd.points_from_xy(
-        dataframe.coord_lon, dataframe.coord_lat))
-    # change the crs of the dataframe
-    gdf_tweets.crs = {'init': 'epsg:4326'}
+        # create geopandas dataframe from pandas dataframe
+        gdf_tweets = gpd.GeoDataFrame(dataframe, geometry=gpd.points_from_xy(
+            dataframe.coord_lon, dataframe.coord_lat))
+        # change the crs of the dataframe
+        gdf_tweets.crs = {'init': 'epsg:4326'}
 
-    # create gpd_df for the states of the US
-    gdf_states = gpd.read_file("us-states.geojson")
-    # deleting all columns besides 'name' and 'geometry'
-    gdf_states = gdf_states[["name", "geometry"]]
-    # change the crs of the dataframe
-    gdf_states.crs = {'init': 'epsg:4326'}
+        # create gpd_df for the states of the US
+        gdf_states = gpd.read_file("us-states.geojson")
+        # deleting all columns besides 'name' and 'geometry'
+        gdf_states = gdf_states[["name", "geometry"]]
+        # change the crs of the dataframe
+        gdf_states.crs = {'init': 'epsg:4326'}
 
-    # spatially join the two dataframes
-    dataframe = gpd.sjoin(
-        gdf_states, gdf_tweets, how="inner", op='intersects'
-    )
+        # spatially join the two dataframes
+        dataframe = gpd.sjoin(
+            gdf_states, gdf_tweets, how="inner", op='intersects'
+        )
+        return dataframe
 
-    return dataframe
+    except Exception:
+        raise ValueError("""There are no tweets from the US in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
 
 
 def create_dataframe_choropleth(data=f"data/{_OUTPUT_JSON_FILENAME}"):
@@ -337,56 +355,64 @@ def create_dataframe_choropleth(data=f"data/{_OUTPUT_JSON_FILENAME}"):
     Returns:
         gdf_final: Geopandas dataframe containing of the states' name and
             polarity/sentiment.
+
+    Raises:
+        ValueError: If no tweets from the US can be found in the dataset.
     """
-    # use create_dataframe() function to generate intitial dataframe from data
-    df = create_dataframe_world(data)
-    # create geopandas dataframe from pandas dataframe
-    gdf_tweets = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(
-        df.coord_lon, df.coord_lat))
-    # delete all columns besides 'sentiment' and 'geometry'
-    gdf_tweets = gdf_tweets[["sentiment", "geometry"]]
-    # change the crs of the dataframe
-    gdf_tweets.crs = {'init': 'epsg:4326'}
-    # replacing the sentiment string with corresponding absolute numbers
-    gdf_tweets = gdf_tweets.replace({"positive": 1, "negative": -1,
-                                     "neutral": 0, "False": None})
+    try:
+        # use create_dataframe() function to generate intitial df from data
+        df = create_dataframe_world(data)
+        # create geopandas dataframe from pandas dataframe
+        gdf_tweets = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(
+            df.coord_lon, df.coord_lat))
+        # delete all columns besides 'sentiment' and 'geometry'
+        gdf_tweets = gdf_tweets[["sentiment", "geometry"]]
+        # change the crs of the dataframe
+        gdf_tweets.crs = {'init': 'epsg:4326'}
+        # replacing the sentiment string with corresponding absolute numbers
+        gdf_tweets = gdf_tweets.replace({"positive": 1, "negative": -1,
+                                         "neutral": 0, "False": None})
 
-    # create gpd_df for the states of the US
-    gdf_states = gpd.read_file("us-states.geojson")
-    # deleting all columns besides 'name' and 'geometry'
-    gdf_states = gdf_states[["name", "geometry"]]
-    # change the crs of the dataframe
-    gdf_states.crs = {'init': 'epsg:4326'}
+        # create gpd_df for the states of the US
+        gdf_states = gpd.read_file("us-states.geojson")
+        # deleting all columns besides 'name' and 'geometry'
+        gdf_states = gdf_states[["name", "geometry"]]
+        # change the crs of the dataframe
+        gdf_states.crs = {'init': 'epsg:4326'}
 
-    # spatially join the two dataframes
-    gdf_tweets_with_states = gpd.sjoin(
-        gdf_states, gdf_tweets, how="inner", op='intersects'
-    )
-    # deleting all columns besides 'name', 'sentiment' and 'geometry'
-    gdf_tweets_with_states = gdf_tweets_with_states[
-        ["name", "sentiment", "geometry"]
-    ]
-    # change types of columns for calculation and display with altair
-    gdf_tweets_with_states = gdf_tweets_with_states.astype(
-        {'sentiment': 'int32', "name": "object"}
-    )
-    # renaming the 'name' column for better visual representation
-    # on mouse-over in the final map
-    gdf_tweets_with_states["State"] = gdf_tweets_with_states["name"]
+        # spatially join the two dataframes
+        gdf_tweets_with_states = gpd.sjoin(
+            gdf_states, gdf_tweets, how="inner", op='intersects'
+        )
+        # deleting all columns besides 'name', 'sentiment' and 'geometry'
+        gdf_tweets_with_states = gdf_tweets_with_states[
+            ["name", "sentiment", "geometry"]
+        ]
+        # change types of columns for calculation and display with altair
+        gdf_tweets_with_states = gdf_tweets_with_states.astype(
+            {'sentiment': 'int32', "name": "object"}
+        )
+        # renaming the 'name' column for better visual representation
+        # on mouse-over in the final map
+        gdf_tweets_with_states["State"] = gdf_tweets_with_states["name"]
 
-    # aggregate the sentiment on per state basis
-    gdf_states_with_sentiment = gdf_tweets_with_states.dissolve(
-        by="name", aggfunc="mean"
-    )
-    # change the crs of the dataframe
-    gdf_states_with_sentiment.crs = {'init': 'epsg:4326'}
+        # aggregate the sentiment on per state basis
+        gdf_states_with_sentiment = gdf_tweets_with_states.dissolve(
+            by="name", aggfunc="mean"
+        )
+        # change the crs of the dataframe
+        gdf_states_with_sentiment.crs = {'init': 'epsg:4326'}
 
-    # second join to display Alaska aswell
-    gdf_final = gpd.sjoin(
-        gdf_states_with_sentiment, gdf_states, how="inner", op="within"
-    )
+        # second join to display Alaska aswell
+        gdf_final = gpd.sjoin(
+            gdf_states_with_sentiment, gdf_states, how="inner", op="within"
+        )
 
-    return gdf_final
+        return gdf_final
+    except Exception:
+        raise ValueError("""There are no tweets from the US in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
 
 
 def plot_tweets_world(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
@@ -399,52 +425,61 @@ def plot_tweets_world(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
 
     Returns:
         output_map: map that represents the world and all tweets.
+
+    Raises:
+        ValueError: If no tweets can be found in the dataset.
     """
-    # calling utility function to create dataframe
-    df = create_dataframe_world(dataset)
-    # using vega_datasets(data) to get the borders of the countries
-    countries = alt.topo_feature(data.world_110m.url, feature='countries')
-    # using altair function to create a spherical background
-    sphere = alt.sphere()
+    try:
+        # calling utility function to create dataframe
+        df = create_dataframe_world(dataset)
+        # using vega_datasets(data) to get the borders of the countries
+        countries = alt.topo_feature(data.world_110m.url, feature='countries')
+        # using altair function to create a spherical background
+        sphere = alt.sphere()
 
-    # disable the maximum rows restriction to be able to chart larger datasets
-    alt.data_transformers.disable_max_rows()
+        # disable the max rows restriction to be able to chart large datasets
+        alt.data_transformers.disable_max_rows()
 
-    # generating chart consisting of the spherical background
-    spheric_background = alt.Chart(sphere).mark_geoshape(fill="aliceblue")
+        # generating chart consisting of the spherical background
+        spheric_background = alt.Chart(sphere).mark_geoshape(fill="aliceblue")
 
-    # generating chart consisting of the countries
-    background_world = alt.Chart(countries).mark_geoshape(
-        fill='lightgray',
-        stroke='white'
-    ).properties(
-        width=720,
-        height=400
-    )
+        # generating chart consisting of the countries
+        background_world = alt.Chart(countries).mark_geoshape(
+            fill='lightgray',
+            stroke='white'
+        ).properties(
+            width=720,
+            height=400
+        )
 
-    # generating chart consisting of the tweets
-    points_world = alt.Chart(df).mark_square(size=1, opacity=0.8).encode(
-        # setting the lat/lon
-        longitude="coord_lon",
-        latitude="coord_lat",
-        color=alt.Color("sentiment:N",
-                        # matching the classes onto the sentiment
-                        scale=alt.Scale(domain=[
-                            "positive", "neutral", 'negative'
-                        ],
-                            # colouring the classes
-                            range=["green", "orange", "red"]
-                        )
-                        ),
-        # generating tooltip with the user name, text and sentiment of tweet
-        tooltip=["user_name", "text", "sentiment"]
-    ).properties(title="Tweets of the world")
+        # generating chart consisting of the tweets
+        points_world = alt.Chart(df).mark_square(size=1, opacity=0.8).encode(
+            # setting the lat/lon
+            longitude="coord_lon",
+            latitude="coord_lat",
+            color=alt.Color("sentiment:N",
+                            # matching the classes onto the sentiment
+                            scale=alt.Scale(domain=[
+                                "positive", "neutral", 'negative'
+                            ],
+                                # colouring the classes
+                                range=["green", "orange", "red"]
+                            )
+                            ),
+            # generating tooltip with the user name, text, sentiment of tweet
+            tooltip=["user_name", "text", "sentiment"]
+        ).properties(title="Tweets of the world")
 
-    # generating the final layered chart
-    output_map = (spheric_background + background_world + points_world)\
-        .project("naturalEarth1")
+        # generating the final layered chart
+        output_map = (spheric_background + background_world + points_world)\
+            .project("naturalEarth1")
 
-    return output_map
+        return output_map
+
+    except Exception:
+        raise ValueError("""There are no tweets in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
 
 
 def plot_tweets_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
@@ -457,41 +492,50 @@ def plot_tweets_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
 
     Returns:
         output_map: map of the US and the tweets sent from there.
+
+    Raises:
+        ValueError: If no tweets from the US can be found in the dataset.
     """
-    # calling utility function to create dataframe
-    df = create_dataframe_us(dataset)
-    # using vega_datasets(data) to get the borders of the states of the US
-    states = alt.topo_feature(data.us_10m.url, feature="states")
+    try:
+        # calling utility function to create dataframe
+        df = create_dataframe_us(dataset)
+        # using vega_datasets(data) to get the borders of the states of the US
+        states = alt.topo_feature(data.us_10m.url, feature="states")
 
-    # disable the maximum rows restriction to be able to chart larger datasets
-    alt.data_transformers.disable_max_rows()
+        # disable the max rows restriction to be able to chart larger datasets
+        alt.data_transformers.disable_max_rows()
 
-    # generating chart consisting of the states
-    background_usa = alt.Chart(states).mark_geoshape(
-        fill="lightgray",
-        stroke="white"
-    ).properties(
-        width=720,
-        height=400
-    )
+        # generating chart consisting of the states
+        background_usa = alt.Chart(states).mark_geoshape(
+            fill="lightgray",
+            stroke="white"
+        ).properties(
+            width=720,
+            height=400
+        )
 
-    # generating chart consisting of the tweets from the US
-    points_usa = alt.Chart(df).mark_square(size=5, opacity=0.5).encode(
-        longitude="coord_lon",
-        latitude="coord_lat",
-        color=alt.Color("sentiment:N",
-                        scale=alt.Scale(domain=[
-                            "positive", "neutral", "negative"
-                        ],
-                            range=["green", "orange", "red"]
-                        )),
-        tooltip=["user_name", "text", "sentiment"]
-    ).properties(title="Tweets of the US")
+        # generating chart consisting of the tweets from the US
+        points_usa = alt.Chart(df).mark_square(size=5, opacity=0.5).encode(
+            longitude="coord_lon",
+            latitude="coord_lat",
+            color=alt.Color("sentiment:N",
+                            scale=alt.Scale(domain=[
+                                "positive", "neutral", "negative"
+                            ],
+                                range=["green", "orange", "red"]
+                            )),
+            tooltip=["user_name", "text", "sentiment"]
+        ).properties(title="Tweets of the US")
 
-    # generating the final layered chart
-    output_map = (background_usa + points_usa).project("albersUsa")
+        # generating the final layered chart
+        output_map = (background_usa + points_usa).project("albersUsa")
 
-    return output_map
+        return output_map
+
+    except Exception:
+        raise ValueError("""There are no tweets from the US in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
 
 
 def plot_stats_world(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
@@ -505,25 +549,32 @@ def plot_stats_world(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
     Returns:
         overview: Interactive Horizonztal bar chart with
             the number of tweets per source.
+
+    Raises:
+        ValueError: If no tweets can be found in the dataset.
     """
-    # calling utility function to create dataframe
-    df = create_dataframe_world(dataset)
+    try:
+        # calling utility function to create dataframe
+        df = create_dataframe_world(dataset)
 
-    # disable the maximum rows restriction to be able to chart larger datasets
-    alt.data_transformers.disable_max_rows()
+        # disable the max rows restriction to be able to chart larger datasets
+        alt.data_transformers.disable_max_rows()
 
-    # generating horizontal bar chart
-    overview = alt.Chart(df).mark_bar().encode(
-        # defining the column to class by
-        alt.Y("source_clean:N",
-              title="sources"
-              ),
-        # aggregating the number of tweets per class
-        alt.X("count()"),
-        tooltip="count()"
-    ).properties(width=720, title="Tweet sources of the world")
+        # generating horizontal bar chart
+        overview = alt.Chart(df).mark_bar().encode(
+            # defining the column to class by
+            alt.Y("source_clean:N", title=""),
+            # aggregating the number of tweets per class
+            alt.X("count()", title=""),
+            tooltip="count()"
+        ).properties(width=720, title="Number of tweets per source worldwide")
 
-    return overview
+        return overview
+
+    except Exception:
+        raise ValueError("""There are no tweets in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
 
 
 def plot_stats_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
@@ -537,25 +588,32 @@ def plot_stats_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
     Returns:
         overview: Horizonztal bar chart with the number
             of tweets per source of the US.
+
+    Raises:
+        ValueError: If no tweets from the US can be found in the dataset.
     """
-    # calling utility function to create dataframe
-    df = create_dataframe_us(dataset)
+    try:
+        # calling utility function to create dataframe
+        df = create_dataframe_us(dataset)
 
-    # disable the maximum rows restriction to be able to chart larger datasets
-    alt.data_transformers.disable_max_rows()
+        # disable the max rows restriction to be able to chart larger datasets
+        alt.data_transformers.disable_max_rows()
 
-    # generating horizontal bar chart
-    overview = alt.Chart(df).mark_bar().encode(
-        # defining the column to class by
-        alt.Y("source_clean:N",
-              title="sources"
-              ),
-        # aggregating the number of tweets per class
-        alt.X("count()"),
-        tooltip="count()"
-    ).properties(width=720, title="Tweet sources of the US")
+        # generating horizontal bar chart
+        overview = alt.Chart(df).mark_bar().encode(
+            # defining the column to class by
+            alt.Y("source_clean:N", title=""),
+            # aggregating the number of tweets per class
+            alt.X("count()", title=""),
+            tooltip="count()"
+        ).properties(width=720, title="Number of tweets per source in the US")
 
-    return overview
+        return overview
+
+    except Exception:
+        raise ValueError("""There are no tweets from the US in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
 
 
 def plot_choro_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
@@ -568,43 +626,52 @@ def plot_choro_usa(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
 
     Returns:
         output map: choropleth map of the mean sentiment per US state.
+
+    Raises:
+        ValueError: If no tweets from the US can be found in the dataset.
     """
-    # calling utility function to create dataframe
-    df_choro = create_dataframe_choropleth(dataset)
-    # using vega_datasets(data) to get the borders of the states of the US
-    states = alt.topo_feature(data.us_10m.url, feature="states")
+    try:
+        # calling utility function to create dataframe
+        df_choro = create_dataframe_choropleth(dataset)
+        # using vega_datasets(data) to get the borders of the states of the US
+        states = alt.topo_feature(data.us_10m.url, feature="states")
 
-    # generating choropleth chart
-    choro = alt.Chart(df_choro).mark_geoshape().encode(
-        color=alt.Color('sentiment',
-                        legend=alt.Legend(title="Positivity",
-                                          tickCount=5,
-                                          tickMinStep=0.5),
-                        scale=alt.Scale(
-                            scheme='redyellowgreen', domain=[-1, 1])
-                        ),
-        tooltip=["name:N", "sentiment"]
-    ).properties(
-        width=720,
-        height=400,
-        title="Average tweet sentiment per state of the US"
-    )
+        # generating choropleth chart
+        choro = alt.Chart(df_choro).mark_geoshape().encode(
+            color=alt.Color('sentiment',
+                            legend=alt.Legend(title="Positivity",
+                                              tickCount=5,
+                                              tickMinStep=0.5),
+                            scale=alt.Scale(
+                                scheme='redyellowgreen', domain=[-1, 1])
+                            ),
+            tooltip=["name:N", "sentiment"]
+        ).properties(
+            width=720,
+            height=400,
+            title="Average tweet sentiment per state of the US"
+        )
 
-    # # generating chart consisting of the states
-    background_usa = alt.Chart(states).mark_geoshape(
-        fill="lightgray",
-        stroke="white"
-    ).properties(
-        width=720,
-        height=400
-    )
+        # # generating chart consisting of the states
+        background_usa = alt.Chart(states).mark_geoshape(
+            fill="lightgray",
+            stroke="white"
+        ).properties(
+            width=720,
+            height=400
+        )
 
-    # generating the final layered chart
-    output_map = (background_usa + choro).project("albersUsa")
+        # generating the final layered chart
+        output_map = (background_usa + choro).project("albersUsa")
 
-    # output_map = background_usa.project("albersUsa")
+        # output_map = background_usa.project("albersUsa")
 
-    return output_map
+        return output_map
+
+    except Exception:
+        raise ValueError("""There are no tweets from the US in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
 
 
 def plot_all(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
@@ -625,129 +692,136 @@ def plot_all(dataset=f"data/{_OUTPUT_JSON_FILENAME}"):
     Returns:
         output_map: Collection of all maps and charts.
     """
-    # calling utility functions to create dataframes
-    df_world = create_dataframe_world(dataset)
-    df_usa = create_dataframe_us(dataset)
-    choro = create_dataframe_choropleth(dataset)
+    try:
+        # calling utility functions to create dataframes
+        df_world = create_dataframe_world(dataset)
+        df_usa = create_dataframe_us(dataset)
+        choro = create_dataframe_choropleth(dataset)
 
-    # using vega_datasets(data)
-    countries = alt.topo_feature(data.world_110m.url, feature='countries')
-    states = alt.topo_feature(data.us_10m.url, feature="states")
-    # using altair function to create a spherical background
-    sphere = alt.sphere()
+        # using vega_datasets(data)
+        countries = alt.topo_feature(data.world_110m.url, feature='countries')
+        states = alt.topo_feature(data.us_10m.url, feature="states")
+        # using altair function to create a spherical background
+        sphere = alt.sphere()
 
-    # setting variables for interaction
-    # setting actual selection
-    brush = alt.selection_multi(encodings=["y"])
-    # setting the opacity of (un)selected bars
-    opacity_overview = alt.condition(brush, alt.value(0.9), alt.value(0.1))
-    # setting the opacity of (un)selected points
-    opacity_points = alt.condition(brush, alt.value(1), alt.value(0))
+        # setting variables for interaction
+        # setting actual selection
+        brush = alt.selection_multi(encodings=["y"])
+        # setting the opacity of (un)selected bars
+        opacity_overview = alt.condition(brush, alt.value(0.9), alt.value(0.1))
+        # setting the opacity of (un)selected points
+        opacity_points = alt.condition(brush, alt.value(1), alt.value(0))
 
-    # disable the maximum rows restriction to be able to chart larger datasets
-    alt.data_transformers.disable_max_rows()
+        # disable the max rows restriction to be able to chart larger datasets
+        alt.data_transformers.disable_max_rows()
 
-    # spheric background
-    spheric_background = alt.Chart(sphere).mark_geoshape(fill="aliceblue")
+        # spheric background
+        spheric_background = alt.Chart(sphere).mark_geoshape(fill="aliceblue")
 
-    # us-states background
-    background_usa = alt.Chart(states).mark_geoshape(
-        fill="lightgray",
-        stroke="white"
-    ).properties(
-        width=720,
-        height=400
-    )
+        # us-states background
+        background_usa = alt.Chart(states).mark_geoshape(
+            fill="lightgray",
+            stroke="white"
+        ).properties(
+            width=720,
+            height=400
+        )
 
-    # world countries background
-    background_world = alt.Chart(countries).mark_geoshape(
-        fill='lightgray',
-        stroke='white'
-    ).properties(
-        width=720,
-        height=400
-    )
+        # world countries background
+        background_world = alt.Chart(countries).mark_geoshape(
+            fill='lightgray',
+            stroke='white'
+        ).properties(
+            width=720,
+            height=400
+        )
 
-    # plot_tweets_world()
-    tweets_world = alt.Chart(df_world).mark_square(size=1, opacity=0.8).encode(
-        longitude="coord_lon",
-        latitude="coord_lat",
-        color=alt.Color("sentiment:N",
-                        scale=alt.Scale(
-                            domain=["positive", "neutral", 'negative'],
-                            range=["green", "orange", "red"]
-                        )
-                        ),
-        tooltip=["user_name", "text", "sentiment"],
-        opacity=opacity_points
-    ).add_selection(brush).properties(title="Tweets of the world")
+        # plot_tweets_world()
+        tweets_world = alt.Chart(df_world).mark_square(
+            size=1, opacity=0.8).encode(
+                longitude="coord_lon",
+                latitude="coord_lat",
+                color=alt.Color("sentiment:N",
+                                scale=alt.Scale(
+                                    domain=["positive", "neutral", 'negative'],
+                                    range=["green", "orange", "red"],
+                                )
+                                ),
+            tooltip=["user_name", "text", "sentiment"],
+            opacity=opacity_points
+        ).add_selection(brush).properties(title="Tweets of the world")
 
-    # plot_tweets_usa()
-    tweets_usa = alt.Chart(df_usa).mark_square(size=5, opacity=0.5).encode(
-        longitude="coord_lon",
-        latitude="coord_lat",
-        color=alt.Color("sentiment:N",
-                        scale=alt.Scale(
-                            domain=["positive", "neutral", "negative"],
-                            range=["green", "orange", "red"]
-                        )
-                        ),
-        tooltip=["user_name", "text", "sentiment"],
-        opacity=opacity_points
-    ).add_selection(brush).properties(title="Tweets of the US")
+        # plot_tweets_usa()
+        tweets_usa = alt.Chart(df_usa).mark_square(size=5, opacity=0.5).encode(
+            longitude="coord_lon",
+            latitude="coord_lat",
+            color=alt.Color("sentiment:N",
+                            scale=alt.Scale(
+                                domain=["positive", "neutral", "negative"],
+                                range=["green", "orange", "red"]
+                            )
+                            ),
+            tooltip=["user_name", "text", "sentiment"],
+            opacity=opacity_points
+        ).add_selection(brush).properties(title="Tweets of the US")
 
-    # plot_stats_world()
-    stats_world = alt.Chart(df_world).mark_bar().encode(
-        alt.Y("source_clean:N",
-              title="sources"
-              ),
-        alt.X("count()"),
-        opacity=opacity_overview,
-        tooltip="count()"
-    ).add_selection(
-        brush
-    ).properties(
-        width=720,
-        title="Tweet sources of the world"
-    ).interactive()
+        # plot_stats_world()
+        stats_world = alt.Chart(df_world).mark_bar().encode(
+            alt.Y("source_clean:N",
+                  title="sources"
+                  ),
+            alt.X("count()"),
+            opacity=opacity_overview,
+            tooltip="count()"
+        ).add_selection(
+            brush
+        ).properties(
+            width=720,
+            title="Tweet sources of the world"
+        ).interactive()
 
-    # plot_stats_usa()
-    stats_usa = alt.Chart(df_usa).mark_bar().encode(
-        alt.Y("source_clean:N",
-              title="sources"
-              ),
-        alt.X("count()"),
-        opacity=opacity_overview,
-        tooltip="count()"
-    ).add_selection(
-        brush
-    ).properties(
-        width=720,
-        title="Tweet sources of the US"
-    ).interactive()
+        # plot_stats_usa()
+        stats_usa = alt.Chart(df_usa).mark_bar().encode(
+            alt.Y("source_clean:N",
+                  title="sources"
+                  ),
+            alt.X("count()"),
+            opacity=opacity_overview,
+            tooltip="count()"
+        ).add_selection(
+            brush
+        ).properties(
+            width=720,
+            title="Tweet sources of the US"
+        ).interactive()
 
-    # plot_choro_usa()
-    choro = alt.Chart(choro).mark_geoshape().encode(
-        color=alt.Color('sentiment',
-                        legend=alt.Legend(title="Positivity",
-                                          tickCount=5,
-                                          tickMinStep=0.5),
-                        scale=alt.Scale(
-                            scheme='redyellowgreen', domain=[-1, 1])
-                        ),
-        tooltip=["name:N", "sentiment"]
-    ).properties(
-        width=720,
-        height=400,
-        title="Average tweet sentiment per state of the US"
-    ).add_selection(brush)
+        # plot_choro_usa()
+        choro = alt.Chart(choro).mark_geoshape().encode(
+            color=alt.Color('sentiment',
+                            legend=alt.Legend(title="Positivity",
+                                              tickCount=5,
+                                              tickMinStep=0.5),
+                            scale=alt.Scale(
+                                scheme='redyellowgreen', domain=[-1, 1])
+                            ),
+            tooltip=["name:N", "sentiment"]
+        ).properties(
+            width=720,
+            height=400,
+            title="Average tweet sentiment per state of the US"
+        ).add_selection(brush)
 
-    # generating the final layered chart
-    output_map = stats_world &\
-        (spheric_background + background_world + tweets_world).project(
-            "naturalEarth1") &\
-        stats_usa &\
-        (background_usa + tweets_usa).project("albersUsa") &\
-        (background_usa + choro).project("albersUsa")
+        # generating the final layered chart
+        output_map = stats_world &\
+            (spheric_background + background_world + tweets_world).project(
+                "naturalEarth1") &\
+            stats_usa &\
+            (background_usa + tweets_usa).project("albersUsa") &\
+            (background_usa + choro).project("albersUsa")
 
-    return output_map
+        return output_map
+
+    except Exception:
+        raise ValueError("""There are no tweets in the dataset yet!
+            Try running get_data() again to collect more data or
+            select another dataset.""")
