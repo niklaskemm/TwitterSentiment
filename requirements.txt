@@ -1,5 +1,5 @@
 textblob==0.15.3
-numpy==1.18.1
+numpy==1.22.0
 pandas==1.0.1
 geopandas==0.6.1
 altair==4.0.0
